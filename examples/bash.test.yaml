@@ -1,0 +1,43 @@
+# Local e2e for the `bash` step library (RFC 009 process capability).
+# Steps only — the capability double opt-in and the `before:` setup live in
+# bash.config.yaml. Build first:
+#
+#   npm run build   # → ../bash.wasm relative to this file's examples dir
+#
+#   perfscale run -f examples/bash.test.yaml -c examples/bash.config.yaml
+#   (run from the repository root — the script-file step uses
+#    `working-directory: examples`, resolved against the process cwd)
+#
+# NOTE: process steps are orchestration (setup, fixtures, one-off checks),
+# not a high-RPS hot path — each invocation is a real host spawn.
+steps:
+  - name: resolve-bash
+    use: lib/bash/which
+    with:
+      name: bash
+      version: true
+    outputs: bashbin
+    check:
+      message_contains: /bash
+
+  - name: inline-script
+    use: lib/bash/exec
+    with:
+      script: echo "hello $1 from /bin/bash"
+      args: ["world"]
+    outputs: said
+    check:
+      message_contains: hello world
+
+  - name: script-file
+    use: lib/bash/exec-file
+    with:
+      path: fixtures/hello.sh
+      working-directory: examples
+      args: ["perfscale"]
+    outputs: file_out
+    check:
+      message_contains: hello perfscale
+# The intentional non-zero-exit case lives in `after:` (see
+# bash.config.yaml): teardown is best-effort, so it demonstrates that a
+# failing script keeps its output without turning the load run red.

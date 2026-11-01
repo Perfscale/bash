@@ -1,0 +1,29 @@
+# Config side of the bash e2e: profile, library registration with the
+# process capability, the one-shot `before:` setup, and the double opt-in.
+vus: 1
+duration: 1s
+seed: 42
+# Double opt-in for the process capability: these config gates AND
+# `capabilities: [process]` on the libraries entry below. Missing either
+# side, the engine refuses to load the component (fail-closed, like `net`).
+allow_library_capabilities: true
+allow_process_actions: true
+libraries:
+  - use: ../bash.wasm
+    capabilities: [process]
+before:
+  - name: warm-up
+    use: lib/bash/exec
+    with:
+      script: echo setup-done
+    outputs: setup              # → ${{ config.setup.stdout }} in test steps
+# Teardown is best-effort: this intentional non-zero exit demonstrates that a
+# failing script keeps its output (exit_code/stdout/stderr recorded under
+# failed_run) without failing the load run.
+after:
+  - name: expected-failure-keeps-output
+    use: lib/bash/exec
+    with:
+      script: echo out; echo err >&2; exit 3
+      timeout_ms: "5000"
+    outputs: failed_run
